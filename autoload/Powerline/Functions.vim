@@ -23,17 +23,32 @@ function! Powerline#Functions#GetFilepath() " {{{
 	let ret = ''
 
 	if g:Powerline_stl_path_style == 'short'
-		" Display a short path where the first directory is displayed with its
-		" full name, and the subsequent directories are shortened to their
-		" first letter, i.e. "/home/user/foo/foo/bar/baz.vim" becomes
-		" "~/foo/f/b/baz.vim"
-		"
 		" This displays the shortest possible path, relative to ~ or the
-		" current directory.
-		let mod = (exists('+acd') && &acd) ? ':~:h' : ':~:.:h'
-		let fpath = split(fnamemodify(filepath, mod), dirsep)
-		let fpath_shortparts = map(fpath[1:], 'v:val[0]')
-		let ret = join(extend([fpath[0]], fpath_shortparts), dirsep) . dirsep
+		" current directory.  Generate several possible path representations,
+		" select the shortest one
+
+		" relative path. keep parent dirs as '..'
+		" "src/foo/bar" -> "s/f/b"
+		" "../foo/bar" -> "../f/b"
+		" "../../foo/bar" -> "../../f/b"
+		let fpath = split(fnamemodify(expand('%'), ':.:h'), dirsep, 1)
+		let fpath_shortparts = map(fpath, 'v:val==".." ? ".." : v:val[0]')
+		let relpath = join(fpath_shortparts, dirsep) . dirsep
+		" convert '../../' to '.../'
+		" let relpath = substitute(relpath, '/\.\.', '.', 'g')
+
+		" absolute path.  use shortcut for $HOME
+		" "/home/user/src/foo/bar" -> "~/s/f/b"
+		" "/etc/foo/bar" -> "/e/f/b"
+		let mod = (exists('+acd') && &acd) ? ':p:~:h' : ':p:~:.:h'
+		let fpath = split(fnamemodify(filepath, mod), dirsep, 1)
+		let fpath_shortparts = map(fpath, 'v:val[0]')
+		let abspath = join(fpath_shortparts, dirsep) . dirsep
+
+		let ret = relpath
+		if len(abspath) < len(relpath)
+			let ret = abspath
+		endif
 	elseif g:Powerline_stl_path_style == 'relative'
 		" Display a relative path, similar to the %f statusline item
 		let ret = fnamemodify(filepath, ':~:.:h') . dirsep
